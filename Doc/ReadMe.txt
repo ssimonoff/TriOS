@@ -1,3 +1,6 @@
+TriOS Project
+Porable OS functions with Extra and Graphics functions
+
 Builds TriOS.lib library to link into other projects.
 See TriOS.cpp, TriEx.cpp, TriGL.cpp comments for documentation.
 
