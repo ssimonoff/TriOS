@@ -6,7 +6,7 @@
 //  MRU:
 //
 //  This is a simple 2D Graphics Library
-//  wutg various low-level image processing functions using BMAP bitmaps.
+//  with various low-level image processing functions using BMAP bitmaps.
 //  It uses x86 MMX if available but not graphics co-processors.
 //  So it is fairly portable yet also fairly fast.
 //  It includes the ability to read/write JPEG and PNG files.
