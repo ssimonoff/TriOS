@@ -172,6 +172,7 @@ typedef SerIn* sfar lpSerIn;
 #define REG_CLASS   1           //Registry HKEY_CLASSES_ROOT  (Shared Classes)
 #define REG_USER    2           //Registry HKEY_CURRENT_USER  (Current User)
 #define REG_LOCAL   3           //Registry HKEY_LOCAL_MACHINE (All Users)
+#define REG_BOTH    0           //RegInfo to use both LOCAL and USER (must be 0)
 #define REG_ROOT    0xF         //Registry Mask for root key value
 
 #define REG_PUT     0x00        //Registry Put key value (must be zero)
@@ -328,6 +329,8 @@ istext Txt2Mac (int mode, byte* pmac, text* ptxt);
 dword  Buf_CRC (void* pBuf, dword nLen, dword ulCRC);
 dword  Get_CRC (void* pBuf, dword nLen);
 dword  FileCheck (int mode, text* pname, dword siz, dword crc);
+dword  CheckBoth (int mode, text* pname, dword siz, dword crc, text* pext);
+
 isproc FileXY (int mode, text* fname, double* pX, double* pY, int npts);
 
 csproc ExTest (int mode, text* pdir);

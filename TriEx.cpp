@@ -1,8 +1,8 @@
 //*************************************************************************
-//  FILENAME:	TriEx.cpp
-//  AUTHOR:	SCSimonoff 12-4-13
-//  CPU:	Portable
-//  O/S:	Portable except Registry,RegCPU,RegMAC
+//  FILENAME:   TriEx.cpp
+//  AUTHOR: SCSimonoff 12-4-13
+//  CPU:    Portable
+//  O/S:    Portable except Registry,RegCPU,RegMAC
 //  MRU:
 //
 //  Extra utility functions not part of TriOS.cpp
@@ -113,6 +113,7 @@ istext Txt2Mac (int mode, byte* pmac, text* ptxt);
 dword  Buf_CRC (void* pBuf, dword nLen, dword ulCRC);
 dword  Get_CRC (void* pBuf, dword nLen);
 dword  FileCheck (int mode, text* pname, dword siz, dword crc);
+dword  CheckBoth (int mode, text* pname, dword siz, dword crc, text* pext);
 isproc FileXY (int mode, text* fname, double* pX, double* pY, int npts);
 
 csproc ExTest (int mode, text* pdir);
@@ -1193,7 +1194,7 @@ isvoid SerFLXV (int mode, SerIn* pser, flx* pval) {
     } else {                                    //Write value?
         if (SerSpace(pser, SER_FLX)) return;
         ptxt = pser->mem + pser->end;
-        ptxt = OSFloatPut(*pval, ptxt, 0, 0);
+        ptxt = OSFloatPut(*pval, ptxt, OS_FLXWIDE,OS_FLXSIGS);
         *ptxt++ = SER_SEP;
         *ptxt = 0;
     }
@@ -3215,7 +3216,7 @@ isproc UserInput (int mode, lint flag, text* prompt, int col, void* pdata) {
 //      Can also encode and docode text from binary without encryption.
 //
 //  Arguments:
-//      errc TextReg (int mode, dword key, text* pbin, byte* pbin, int* bits)
+//      errc TextReg (int mode, dword key, text* preg, byte* pbin, int* bits)
 //      mode    1 = Decrypt text to binary bytes        (TR_2BIN)
 //              2 = Encrypt text from binary bytes      (TR_2TXT)
 //            +16 = Make first text section bigger      (TR_ADD1)
@@ -3226,6 +3227,7 @@ isproc UserInput (int mode, lint flag, text* prompt, int col, void* pdata) {
 //      key     Key for encryption and decryption.
 //              May be zero to encode or decode without encryption.
 //      preg    Supplies or returns registration zero terminated text.
+//              For mode 1 may not exceed TR_MAXS=511 chars with term.
 //              For mode 2 must supply large enough buffer.
 //      pbin    Supplies or returns binary values.
 //              Last byte is padded with high zeroes of not even bytes.
@@ -3241,6 +3243,7 @@ isproc UserInput (int mode, lint flag, text* prompt, int col, void* pdata) {
 //*************************************************************************
 
 #define TR_MAXB (64*4)                          //max bytes we can handle
+#define TR_MAXS 512                             //max characters to decrypt
 
 #define TR_BRKD 3                               //value above omitted D
 #define TR_BRKI 7                               //value above omitted I
@@ -3251,6 +3254,7 @@ isproc UserInput (int mode, lint flag, text* prompt, int col, void* pdata) {
 
 CSTYLE
 isproc TextReg (int mode, dword key, text* preg, byte* pbin, int bits) {
+    text regs[TR_MAXS];
     byte data[TR_MAXB];
     byte* pdat;
     text* pout;
@@ -3337,6 +3341,19 @@ isproc TextReg (int mode, dword key, text* preg, byte* pbin, int bits) {
         return (pout - preg);                   //return chars of output
 
     } else {                                    //TR_2BIN decrypt to binary?
+        pout = regs;
+        while (*preg) {                         //remove whitespace chars
+            if ((*preg != '-')&&(((unsigned)*preg) > ' ')) {
+                *pout++ = *preg;
+                if ((pout - regs) >= (TR_MAXS-1)) {
+                    break;                      //don't overflow buffer
+                }
+            }
+            preg += 1;
+        }
+        *pout = 0;                              //zero term cleaned up string
+        preg = regs;                            //use cleaned up input
+
         if (nbin > TR_MAXB) nbin = TR_MAXB;
         pdat = data;
         left = 0;                               //bits left in code char
@@ -3448,6 +3465,9 @@ isproc TextMix (int key, text* ptxt) {
     pold = ptxt;
     while (*ptxt) {
         cc = *ptxt;
+        if (((unsigned)cc) < ' ') {
+            cc = ' ';                           //switch CR,LF etc to blank
+        }
         if (upper) {
             cc = CAPITAL(cc);                   //normally force upper case
 
@@ -3701,6 +3721,8 @@ isproc Registry (lint mode, text* pkey, text* pname, text* pvalue) {
 //  Arguments:
 //      int RegInfo (int mode, text* file, text* key, text* name, text* value)
 //      mode    Same as Registry function mode argument.
+//             0        = Use REG_BOTH to save both REG_LOCAL and REG_USER.
+//             1,2,3    = Use REG_CLASS, REG_USER, REG_LOCAL in registry.
 //             +REG_GET = Add in to mode to get rather than set the value.
 //                        The text value is returned in *pvalue.
 //                        A blank string (zero only) is returned if error.
@@ -3724,13 +3746,23 @@ CSTYLE
 isproc RegInfo (int mode, text* pfile, text* pkey, text* pname, text* pvalue) {
     text* ptxt;
     IReg ini;
-    int rv;
+    int rv, user, where;
 
+    where = mode & REG_ROOT;                    //where in registry root
+    user = 0;
+    if (where == REG_BOTH) {                    //both => try local first
+        user = mode | REG_USER;                 //and try user second
+        mode |= REG_LOCAL;
+    }
     if (mode & REG_GET) {
         pvalue[0] = 0;                          //try reading from registry
         mode |= REG_SZDISK;                     //must be this size for ini
         rv = Registry(mode, pkey, pname, pvalue);
-        if ((pvalue[0] == 0)&&(pfile)) {        //missing in registry?
+        if ((pvalue[0] == 0)&&(user)) {
+            user |= REG_SZDISK;
+            rv = Registry(user, pkey, pname, pvalue);
+        }                                       //try user second if both
+        if ((pvalue[0] == 0)&&(pfile)) {        //still missing in registry?
             OSMemClear(&ini, sizeof(ini));      //try reading from file
             rv = OSRegIni(CREG_LOAD, &ini, NULL, NULL, pfile);
             if (rv == 0) {
@@ -3777,7 +3809,10 @@ isproc RegInfo (int mode, text* pfile, text* pkey, text* pname, text* pvalue) {
             OSRegIni(CREG_FREE, &ini, NULL, NULL, NULL);
         }
         rv = Registry(mode, pkey, pname, pvalue);
-        return(rv);                             //also save to registry
+        if (user) {                             //also save to registry
+            rv = Registry(user, pkey, pname, pvalue);
+        }                                       //save to both local and user?
+        return(rv);
     }
 }
 
@@ -4150,7 +4185,7 @@ dword Get_CRC (void* pBuf, dword nLen) {
 //      Mode 0 returns -1 TRUENEG if file does not match crc.
 //      Mode 0 returns -2 TRUEMIN if cannot open file.
 //      Modes 1 and 2 return unsigned byte size or checksum.
-//      Modes 1 and 2 return FALSE if error.
+//      Modes 1 and 2 return -1 if missing file.
 //*************************************************************************
 
 CSTYLE
@@ -4187,6 +4222,7 @@ dword FileCheck (int mode, text* pname, dword siz, dword crc) {
             done += have;                       //also recheck file size
         }
         sum = sum ^ CRC_INIT;
+        if (sum == -1) sum = -2;                //reserve -1 for missing
         OSClose(file);
         if (mode & 2) {
             return(sum);                        //just return checksum?
@@ -4199,6 +4235,82 @@ dword FileCheck (int mode, text* pname, dword siz, dword crc) {
         }
     }
     return(TRUE);                               //file checks okay
+}
+
+//*************************************************************************
+//  CheckBoth:
+//      Like FileCheck but checks a second file with a different extension
+//      and adds the size or checksum to the first file's.
+//      Unlike FileCheck, second file adds 0 if missing.
+//
+//  Arguments:
+//      dword CheckBoth (int mode, text* pname, dword siz, dword crc,
+//                       text* pext) 
+//      mode    0 = Check the pname file.
+//              1 = Return pname file byte size.
+//              2 = Return pname file checksum.
+//             +4 = Add to mode 0 to skip siz check. 
+//             +8 = Add to mode 0 to skip crc check. 
+//      pname   Path and file name to check.
+//      siz     Expected file byte size for mode 0.
+//              Ignored for modes 1 and 2.
+//      crc     Expected file CRC checksum for mode 0.
+//              Previous file's CRC for modes 1 and 2.
+//      pext    Extsion (like ".ext") for second filename.
+//              If NULL just handles single pname file.
+//              Otherwise uses sum of siz or crc,
+//              where second file adds 0 if missing.
+//
+//  Returns:
+//      Mode 0 returns TRUE if files match crc and siz.
+//      Mode 0 returns FALSE if files do not match siz.
+//      Mode 0 returns -1 TRUENEG if files do not match crc.
+//      Mode 0 returns -2 TRUEMIN if cannot open first file.
+//      Modes 1 and 2 add unsigned byte size or checksum to crc.
+//      Modes 1 and 2 add 0 if missing second file.
+//*************************************************************************
+
+CSTYLE
+dword CheckBoth (int mode, text* pname, dword siz, dword crc, text* pext) {
+    text other[SZPATH];
+    dword sum, one, two;
+
+    if (pext == NULL) {                         //no second file?
+        sum = FileCheck(mode, pname, siz, crc); //handle first file
+        return(sum);
+    }
+    OSFileType(other, pname, pext);             //path with other extension
+    if (mode & (1+2)) {                         //return siz or crc?
+        sum = FileCheck(mode, pname, 0, 0);     //handle first file
+        two = FileCheck(mode, other, 0, 0);     //get other file's siz or crc
+        if (two == -1) two = 0;                 //missing adds zero
+        return(sum + two);                      //add to previous siz or crc
+    }
+    sum = 0;                                    //chcke size and/or crc?
+    if (!(mode & 4)) {                          //check size?
+        one = FileCheck(1, pname, 0, 0);        //handle first file
+        if (one == -1) return(-2);              //first does not exist?
+        sum += one;
+        two = FileCheck(1, other, 0, 0);        //get other file's siz
+        if (two == -1) two = 0;                 //missing adds zero
+        sum += two;                             //sum of two sizes
+        if (sum != siz) {
+            return(FALSE);                      //sizes do not match
+        }
+    }
+    sum = 0;
+    if (!(mode & 8)) {                          //check
+        one = FileCheck(2, pname, 0, 0);        //handle first file
+        if (one == -1) return(-2);              //first does not exist?
+        sum += one;
+        two = FileCheck(2, other, 0, 0);        //get other file's crc
+        if (two == -1) two = 0;                 //missing adds zero
+        sum += two;                             //sum of two checksums
+        if (sum != crc) {
+            return(TRUENEG);                    //checksums do not match
+        }
+    }
+    return(TRUE);                               //everything matches?
 }
 
 //*************************************************************************

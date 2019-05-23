@@ -66,7 +66,7 @@
 #endif
 
 #define TYPEDEF 	typedef
-#define STRUCT          struct
+#define STRUCT      struct
 #define CLASS		class
 
 #define DB(type,name)	  type name;	    //byte values

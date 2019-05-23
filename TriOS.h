@@ -548,6 +548,9 @@ CSTYLE_END
 #define OS_PASTE    1           //OSClipboard paste from clipboard
 #define OS_COPY     2           //OSClipboard copy to clipboard
 
+#define OS_FLXWIDE  18          //OSFloatPut suggested width for 64-bit values
+#define OS_FLXSIGS  14          //OSFloatPut suggested sig digits for 64-bit
+
 #define FF_FIRST    1           //OSFindFile find first file mode
 #define FF_NEXT     2           //OSFindFile find next file mode
 #define FF_DONE     0           //OSFindFile done mode

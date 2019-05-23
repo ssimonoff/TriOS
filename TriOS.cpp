@@ -4863,6 +4863,7 @@ flx roundup[21] =
 //              Also, if width is zero, very small numbers are forced to 0.
 //              If width is -1 then scientific notation is always used.
 //              If width is -2 then sigs must be negative as described below.
+//              Use OS_FLXWIDE for suggested flx 64-bit 18 chars wide.
 //      sigs    Number of significant digits to show.  If 0 then uses 6.
 //              For example 1.234567 shows as "1.23457" if sigs is 6.
 //              If negative, then absolute value is digits after the decimal
@@ -4874,6 +4875,7 @@ flx roundup[21] =
 //              point, but the number is left justified with at least a
 //              leading 0 before the decimal place and the width field
 //              is assumed to be at least 32 characters (SZNAME) wide.
+//              Use OS_FLXSIGS for suggested flx 64-bit 14 digits.
 //
 //  Returns:
 //      Pointer to the terminating null placed at the end of the buffer.
@@ -4977,6 +4979,12 @@ OSFloatPut (flx num, text* buf, int width, int sigs) {
             *buf++ = '0' + dig;
             num = (num - dig) * 10;
         }
+        if (cnt != -999) {
+            buf -= 1;
+            while (*buf == '0') buf -= 1;       //omit ending 0 decimals
+            if (*buf == DecimalChar) *(++buf) = '0';
+            buf += 1;                           //except for first
+        }
         *buf++ = 'E';
         exp -= 1;
         if (exp < 0) {
@@ -4984,12 +4992,11 @@ OSFloatPut (flx num, text* buf, int width, int sigs) {
             *buf++ = '-';
         } else *buf++ = '+';
 
-        if (exp > 100)
-            {
+        if (exp > 100) {
              dig = exp / 100;
              *buf++ = '0' + dig;
              exp -= (dig*100);
-            }
+        }
         dig = exp/10;
         *buf++ = '0' + dig;
         dig = exp - (dig*10);
@@ -9226,7 +9233,7 @@ OSRegIni (int mode, IReg* preg, text* psec, text* pkey, text* pval) {
 //                 Text should not exceed SZDISK chars.
 //      file    Path and filename of ini file (ends with .ini by convention).
 //              This is currently only used in Linux version.
-//      key     Name of subkey under root (eg "Software\Triscape").
+//      key     Name of subkey in HKEY_LOCAL_MACHIN (eg "Software\Triscape").
 //              Uses only the last part in INI file (e.g. "Triscape").
 //      name    Name of value within the key to be set.
 //      pvalue  Text value to be assocated with key and name to put.
@@ -9251,6 +9258,7 @@ OSReg (int mode, text* pfile, text* pkey, text* pname, text* pvalue) {
 
     if (mode & OS_WRITE) {                      //put?
         #ifdef ISWIN                            //--- Windows
+        root = HKEY_LOCAL_MACHINE;
         fail = RegCreateKeyA(root, pkey, &key);
         if (fail) return(ECSYS);
 
