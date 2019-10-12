@@ -1,6 +1,9 @@
-Debug/
-Release/
 *.user
 *.ncb
 *.suo
+*.obj
+*.idb
+*.pdb
 x.txt
+BuildLog.htm
+
