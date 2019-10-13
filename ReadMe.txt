@@ -28,7 +28,7 @@ optionally implemented in assembly for speed and can replace C/C++ runtime
 functions. 
 
 See the list of functions at the top of TriOS.cpp. Search for function call
-documentationw in the same file using the function name followed by a : char.
+documentation in the same file using the function name followed by a : char.
 
 The TriOS.c source is a C-only version of TriOS.cpp, because the TriOS API
 does not heavily depend on C++ and TriOS.c is convenient for embedded Linux
@@ -60,7 +60,7 @@ Prebuilt Windows libraries are included in Release and Debug.
 However, the C/C++ sources are normally just included in larger projects.
 See TriOS.cpp, TriEx.cpp, TriGL.cpp comments for documentation.
 
-Currently builds with VisualStudio 2008
+Currently builds with Visual Studio 2008
 Currently defines OSBASE,NOJPEG,NOPNG
 
 Does not include JPEG and PNG image file support given NOJPEG and NOPNG defs.
@@ -68,8 +68,8 @@ If enabled, Inc and Lib folders hold Windows JPEG and PNG implementations
 and the jpeg.lib uses TriOS compatible StmRead/StmWrite interfaces as required.
 To enable JPEG and PNG remove NOJPEG and/or NOPNG defintions.
 
-There is currently no customized JPEG library for Linux
-ToDo: Dig out the old modifies JPEG sources and recompile for Linux.
+There is currently no customized JPEG library for Linux.
+ToDo: Dig out the old slightly modified JPEG sources and recompile for Linux.
 
 For Windows, define:
     WIN32 (or WIN64)
@@ -82,6 +82,7 @@ Without NOPNG define, must also link with:
 Without NOJPEG define, must also link with:
     jpeg.lib (built with I/O calls linked to StmRead/StmWrite)
 The required zlib.lib, jpeg.lib, libpng.lib are available in the Lib folder. 
+The included Visual Studio project files are for VS2008.
 
 For Linux, compile with:
     -Wno-write-strings -Wno-format
@@ -91,5 +92,3 @@ Without NOPNG define, must also link with:
     -lpng
 Without NOJPEG define, must also link with:
     -ljpeg (built with I/O calls linked to StmRead/StmWrite)
-
-The included Visual Studio project files are for VS2008.
