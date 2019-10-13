@@ -41,6 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories=".\Inc"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;OSBASE;NOJPEG;NOPNG"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -60,6 +61,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				AdditionalLibraryDirectories=".\Lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -104,6 +106,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories=".\Inc"
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;OSBASE;NOJPEG;NOPNG"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -122,6 +125,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				AdditionalLibraryDirectories=".\Lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
