@@ -55,6 +55,12 @@ standard JPEG library where I/O calls are directed to the StmRead, StmWrite
 file stream I/O APIs defined by TriOS.h.
 
 
+C/C++ sources include CDefs.h with a set of simple but non-standard lower
+case typedefs for common data types like byte, word, dword, qword for unsigned
+and cint, sint, lint, qint for signed values. It includes many useful macros.
+Check CDefs.h for documentation.
+
+
 Builds TriOS.lib library to link into other projects.
 Prebuilt Windows libraries are included in Release and Debug.
 However, the C/C++ sources are normally just included in larger projects.
