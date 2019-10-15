@@ -13,6 +13,7 @@ applications and DLLs. It has also been used for one fairly sophisticated
 embedded Linux application, as well as Linux CGI server applications.
 Overall, it is better tested on Windows.
 
+
 The TriOS.cpp and TriOS.h sources contain the core portable OS API
 with a large variety of functions to handle memory allocation, file I/O,
 text formatting and handling, and much more. There are also functions to
@@ -34,6 +35,7 @@ The TriOS.c source is a C-only version of TriOS.cpp, because the TriOS API
 does not heavily depend on C++ and TriOS.c is convenient for embedded Linux
 applications where you may want to work exclusively in C.
 
+
 The TriEx.cpp and TriEx.h sources contain extensions that are portable because
 they use the TriOS.cpp API and do not change between Windows and Linux.
 These include functions to serialize and de-serialize binary data, which
@@ -43,16 +45,43 @@ between tasks, one of which is bullet proof without mutex locking when used
 on single core systems (though it is usually built with locking).
 There are also functions to handle CRC and Windows Registry I/O.
 
+
 The TriGL.cpp and TriGL.h sources contain a fairly complete bitmap-based
-graphics API. This is not a GUI to support building windowed applications.
+graphics API. It allows for transparency with standard BGRA (or less common
+RGBA) 32 bits/pixel bitmaps, as well as 8, 4, or 1 bits/pixel bitmaps with
+color pallets. It includes functions for creating bitmaps, reading and writing
+JPEG, PNG, and BMP files, It can copy bitmaps with high-quality resizing
+(stretching) and transparency. It can also swivel images to any angle. It
+supports drawing with lines and shaped pens, plus polygons, circles and ovals.
+There is also support for equally-spaced X,Y line plots and HLS colors.
+
+Because TriGL is designed to work without Windows (or other OS support),
+it does not have much support for drawing text on bitmap images. However,
+the BitsText API can load and draw special PNG font images for the Roman
+mono-spaced alphabet and common punctuations (ASCII 0x20 - 0x59). It requires
+special PNG font files with character images in ASCII order using background
+transparency outside the characters and monochrome 0xFF white inside (which is
+replaced with the desired text color when rendered). Two differently sized
+font files are currently included: TriFont_T9.png and TriFont_T12.png.
+If used, font files must be placed in the executable's directory.
+
+TriGL is not a GUI to support building windowed applications.
 Instead it provides functions to read and write common image file formats
 like PNG and JPEG, and provides an API to do fairly sophisticated image
 manipulations for bitmap-based images. Applications using this API typically
 use low level Windows calls to render bitmaps to the app's screen windows.
 
+TriGL uses inline Visual Studio style x86 assembly for some functions when
+available. It was not built or tested with Linux in mind and currently does
+not handle inline Linux assembly, but should correctly default to slower
+C-only code for those functions (which unfortunately is not as well tested).
+It should not be difficult to modify TriGL to compile inline x86 for Linux.
+
 Note that TriGL JPEG handling depends on a specially built version of the
-standard JPEG library where I/O calls are directed to the StmRead, StmWrite
-file stream I/O APIs defined by TriOS.h.
+Independent JPEG Group library where I/O calls are directed to the StmFRead
+and StmFWrite file stream I/O APIs defined by TriOS.h. The JPEG library is
+passed an StmFile object pointer instead of an stdio file handle.
+PNG handling just requires an unadulterated copy of libpng.
 
 
 C/C++ sources include CDefs.h with a set of simple but non-standard lower
@@ -61,7 +90,7 @@ and cint, sint, lint, qint for signed values. It includes many useful macros.
 Check CDefs.h for documentation.
 
 
-Builds TriOS.lib library to link into other projects.
+The VS2008 project builds TriOS.lib library to link into other projects.
 Prebuilt Windows libraries are included in Release and Debug.
 However, the C/C++ sources are normally just included in larger projects.
 See TriOS.cpp, TriEx.cpp, TriGL.cpp comments for documentation.
