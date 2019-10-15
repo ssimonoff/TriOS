@@ -109,15 +109,19 @@ ToDo: Dig out the old slightly modified JPEG sources and recompile for Linux.
 For Windows, define:
     WIN32 (or WIN64)
 For Windows, link with:
-    zlib.lib;wpcap.lib;ws2_32.lib;iphlpapi.lib;htmlhelp.lib;wininet.lib;
+    zlib.lib;
 Without OSBASE define, must also link with:
     ws2_32.lib and wininet.lib
 Without NOPNG define, must also link with:
     libpng.lib
 Without NOJPEG define, must also link with:
-    jpeg.lib (built with I/O calls linked to StmRead/StmWrite)
+    jpeg.lib (built with I/O calls linked to StmFRead/StmFWrite)
+TriOS.cpp mentions htmlhelp.lib;iphlpapi.lib;wpcap.lib but they are optional
+    htmlhelp.lib is required for ShowHelp in TriEx.cpp
+    iphlpapi.lib is required if TriOS is built with DO_MACAD defined
+    wpcap.lib is required if TriOS is built with DOPCAP defined
 The required zlib.lib, jpeg.lib, libpng.lib are available in the Lib folder. 
-The included Visual Studio project files are for VS2008.
+The included Visual Studio project files are for VS2008 (but newer should work).
 
 For Linux, compile with:
     -Wno-write-strings -Wno-format
