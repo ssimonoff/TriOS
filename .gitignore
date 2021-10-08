@@ -4,6 +4,7 @@
 *.obj
 *.idb
 *.pdb
+*.bu*
 x.txt
 BuildLog.htm
 

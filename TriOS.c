@@ -10,10 +10,19 @@
 //      For Linux compile with -Wno-write-strings -Wno-format
 //      For Linux link with -lpthread -lrt -lm
 //
-//  This software was created 1996-2018 by SCSimonoff for Triscape Inc.
+//  This software was created 1996-2020 by SCSimonoff for Triscape Inc.
 //  This may be freely used and distributed on the condition that this
 //  message remains and no copyright is added to this or derived copies.
 //*************************************************************************
+
+#ifdef  _WIN32                                  //Before we include CDefs.h
+#define WIN32 1                                 //so duplicate definitions so
+#define ISWIN 1                                 //we can include correct OS
+#endif
+#ifdef  _WIN64
+#define WIN64 1
+#define ISWIN 1
+#endif
 
 #ifdef WIN32                                    //=== Windows
 #ifdef DOPCAP                                   //---
@@ -73,6 +82,8 @@ void* xproc     OSReAlloc (void* mem, aword bytes);
 void* xproc     OSFree (void* mem);
 
 void xproc      OSMemClear (void* pdest, aword bytes);
+void xproc      OSMemFillB (void* pdest, byte value, aword bytes);
+void xproc      OSMemFillD (void* pdest, dword value, aword bytes);
 void xproc      OSMemCopy (void* pdest, void* psource, aword bytes);
 void xproc      OSMemCopyR (void* pdest, void* psource, aword bytes);
 aint xproc      OSMemMatch (void* pmem1, void* pmem2, aword bytes);
@@ -108,6 +119,7 @@ text* xproc     OSIntPut (lint num, text* ptext);
 lint xproc      OSIntGet (text* ptext, lptext* ppend);
 text* xproc     OSIntPutQ (qint num, text* ptext);
 qint xproc      OSIntGetQ (text* ptext, lptext* ppend);
+text* xproc     OSIntPutU (dword num, text* ptext);
 
 text* xproc     OSHexPut (dword num, text* ptext);
 dword xproc     OSHexGet (text* ptext, lptext* ppend);
@@ -124,6 +136,9 @@ flx xproc       OSSin (flx value);
 flx xproc       OSCos (flx value);
 flx xproc       OSArcTan (flx value);
 flx xproc       OSArcTan2 (flx yval, flx xval);
+
+int xproc       OSInterp (int mode, flx* Y2, int npt2, flx beg2, flx end2, flx beg, flx end, flx* X, flx* Y, int npts);
+flx xproc       OSSpline (int mode, flx xval, flx* pV, flx* pX, int npts);
 flx xproc       OSRaise (flx base, flx exp);
 flx xproc       OSLog10 (flx value);
 
@@ -609,6 +624,142 @@ OSMemClear (void* pdest, aword bytes) {
           " :
             : "m"(pdest), "m"(bytes)
             : "%eax", "%ecx", "%edx", "%edi"
+    );
+    #endif                                      //===
+    #endif                                      //---
+    #endif                                      //-------
+    return;
+}
+
+//*************************************************************************
+//  OSMemFillB:
+//      Fills a buffer with a specified byte value.
+//
+//  Arguments:
+//      void OSMemFillB (void* pdest, byte value, aword bytes)
+//      pdest   Destination buffer pointer.
+//      value   Byte value to replicate throught the destination buffer.
+//      bytes   Byte size of buffer to be filled.
+//
+//  Returns:
+//      Nothing.
+//*************************************************************************
+
+CSTYLE void xproc
+OSMemFillB (void* pdest, byte value, aword bytes) {
+    #ifdef NOI86                                //-------
+    memset(pdest, value, (size_t)bytes);        //C runtime (LIBC.LIB)
+    #else                                       //-------
+
+    #ifdef ISX64                                //---
+    #ifdef ISWIN                                //===
+    __stosb((PBYTE)pdest, value, bytes);
+    #else                                       //===
+    asm ( "                                     \
+        movq    %0, %%rdi       ;               \
+        movb    %1, %%al        ;               \
+        movl    %2, %%rcx       ;               \
+        cld                     ;               \
+        rep     stosb (%%rdi)   ;               \
+          " :
+            : "m"(pdest), "m"(value), "m"(bytes)
+            : "%rax", "%rcx", "%rdi"
+    );
+    #endif                                      //===
+    #else                                       //---
+
+    #ifdef WIN32                                //===
+    ASM {
+        mov     edi,pdest
+        mov     al,value
+        mov     ecx,bytes
+        cld
+        rep     stos byte ptr[edi]
+    }
+    #else                                       //===
+    asm ( "                                     \
+        movl    %0, %%edi       ;               \
+        movb    %1, %%al        ;               \
+        movl    %2, %%ecx       ;               \
+        cld                     ;               \
+        rep     stosb (%%edi)   ;               \
+          " :
+            : "m"(pdest), "m"(value), "m"(bytes)
+            : "%eax", "%ecx", "%edi"
+    );
+    #endif                                      //===
+    #endif                                      //---
+    #endif                                      //-------
+    return;
+}
+
+//*************************************************************************
+//  OSMemFillD:
+//      Fills a buffer with a specified 32-bit dword value.
+//
+//  Arguments:
+//      void OSMemFillD (void* pdest, dword value, aword bytes)
+//      pdest   Destination buffer pointer.
+//      value   32-bit vallue to replicate throught the destination buffer.
+//      bytes   Byte size of buffer to be filled.
+//              Beware that the number of dwords is this divided by four!
+//              This should be a multiple of four.
+//              Extra bytes after the last dword are ignored.
+//
+//  Returns:
+//      Nothing.
+//*************************************************************************
+
+CSTYLE void xproc
+OSMemFillD (void* pdest, dword value, aword bytes) {
+    #ifdef NOI86                                //-------
+    dword* pdw;
+
+    pdw = (dword*) pdest;
+    bytes = bytes >> 2;
+    while (bytes--) {
+        *pdw++ = value;
+    }
+    #else                                       //-------
+
+    #ifdef ISX64                                //---
+    #ifdef ISWIN                                //===
+    __stosd((PDWORD)pdest, value, (bytes >> 2));
+    #else                                       //===
+    asm ( "                                     \
+        movq    %0, %%rdi       ;               \
+        movl    %1, %%eax       ;               \
+        movq    %2, %%rcx       ;               \
+        shr     $2, %%rcx       ;               \
+        cld                     ;               \
+        rep     stosl (%%rdi)   ;               \
+          " :
+            : "m"(pdest), "m"(value), "m"(bytes)
+            : "%rax", "%rcx", "%rdi"
+    );
+    #endif                                      //===
+    #else                                       //---
+
+    #ifdef WIN32                                //===
+    ASM {
+        mov     edi,pdest
+        mov     eax,value
+        mov     ecx,bytes
+        shr     ecx,2
+        cld
+        rep     stos dword ptr[edi]
+    }
+    #else                                       //===
+    asm ( "                                     \
+        movl    %0, %%edi       ;               \
+        movl    %1, %%eax       ;               \
+        movl    %2, %%ecx       ;               \
+        shr     $2, %%ecx       ;               \
+        cld                     ;               \
+        rep     stosl (%%edi)   ;               \
+          " :
+            : "m"(pdest), "m"(value), "m"(bytes)
+            : "%eax", "%ecx", "%edi"
     );
     #endif                                      //===
     #endif                                      //---
@@ -2872,6 +3023,7 @@ OSLocation (text* pbuf, int mode) {
     int ret;
 
     *pbuf = 0;                                  //in case of error
+    ptxt = pbuf;                                //in case of error
     #ifdef ISWIN                                //=== Windows
     if (mode == OS_LOCBIN) {                    //OS binaries folder?
         GetWindowsDirectoryA(pbuf, SZDISK);
@@ -3277,6 +3429,37 @@ OSIntGetQ (text* ptext, lptext* ppend) {
     if (sign) num = -num;
     if (ppend) *ppend = ptext;
     return(num);                        //non-digit ends number
+}
+
+//*************************************************************************
+//  OSIntPutU:
+//      Converts an unsigned four byte integer to decimal text.
+//
+//  Arguments:
+//      text* OSIntPutU (dword num, text* ptext)
+//      num     Unsigned number
+//      ptext   Pointer to where first character of text should go.
+//
+//  Returns:
+//      Pointer to the terminating zero character placed at end of text.
+//*************************************************************************
+
+CSTYLE text* xproc
+OSIntPutU (dword num, text* ptext) {
+    text buf[32];
+    ftext *pbuf;
+
+    pbuf = buf;
+    do {                                //get digits in reverse order
+        *pbuf++ = (text)(num % 10) + '0';
+        num /= 10;
+    } while (num);
+
+    while (pbuf > buf)                  //reverse and output text digits
+        *ptext++ = *(--pbuf);
+
+    *ptext = 0;
+    return(ptext);                      //return ending null pointer
 }
 
 //*************************************************************************
@@ -4242,6 +4425,285 @@ OSArcTan2 (flx yval, flx xval) {
 }                                               //arctan works -Pi/2 to +Pi/2
 
 //*************************************************************************
+//  OSInterp:
+//      Interpolates an X,Y or evenly-spaced Y-only spectrum
+//      to a given evenly spaced Y-only spectrum with arbitrary begX,endX,npts.
+//      Goes through target spectrum and uses OSSpline below for each point.
+//
+//  Arguments:
+//      int OSInterp (int mode, flx* Y2, int npt2, flx beg2, flx end2,
+//                    flx beg, flx end, flx* X, flx* Y, int npts)
+//      mode    0 = Linear interpolation
+//              1 = Spline interpolation
+//             +8 = Do not assume zero values one point outside source X limits
+//                  Does linear interpolation with last two points beyond limits
+//                  Without +8 interpolates to 0 one point beyond limits
+//                  and outputs zero values further beyond the limits
+//      Y2      Buffer to receive interpolated output spectrum.
+//              Must have space for npt2 double values.
+//      npt2    Number of points in Y2 interpolated output spectrum.
+//      beg2    Begin X coordinate for Y2 interpolated output spectrum.
+//      end2    End X coordinate for Y2 interpolates output spectrum.
+//      beg     Begin X coordinate for source Y array if X is NULL.
+//      end     End X coordinate for source Y array if X is NULL.
+//              The end coordinate must be greater than beg.
+//      X       X coordinates for source X,Y spectrum or NULL for Y-only.
+//              The X coordinates must be monitonically increasing.
+//      Y       Y intensities for X,Y or Y-only source spectrum.
+//      npts    Number of points in source X and Y arrays or Y-only array.
+//              Must be at least 2 for linear or 4 for spline.
+//
+//  Returns:
+//      Returns 0 or a negative error code.
+//*************************************************************************
+    
+CSTYLE int xproc
+OSInterp (int mode, flx* Y2, int npt2, flx beg2, flx end2,
+          flx beg, flx end, flx* X, flx* Y, int npts) {
+    double delta, xval, xend, xfac;
+    int ival;
+
+    if (beg2 >= end2) return(ECBADPEAK);        //must be ascending X
+    ival = (mode & 1) ? 4 : 2;                  //minimum npts
+    if ((npt2 < ival)||(npts < ival)) return(ECFEWPTS);
+
+    if (X) {                                    //X,Y?
+        xval = beg2;                            //start with first output X
+        delta = (end2 - beg2)/(npt2 - 1);       //delta X per output point
+
+    } else {                                    //Y-only?
+        if (beg >= end) return(ECBADNPTS);      //must be ascending X
+        xfac = (npts - 1) / (end - beg);        //points per X in source
+        xval = (beg2 - beg) * xfac;             //starting point on source array
+        xend = (end2 - beg) * xfac;             //ending point on source array
+        delta = (xend - xval) / (npt2 - 1);     //delta source point per output
+    }
+    do {                                        //go through output points
+        *Y2++ = OSSpline(mode, xval, Y, X, npts);
+        xval += delta;                          //interpolate Y value for each
+    } while (--npt2);
+    return(0);                                  //all done
+}
+
+//*************************************************************************
+//  OSSpline:
+//      Calculates a four-point spline interpolated value for one coordinate.
+//      Can optionally use less computationally intensive linear interpolation.
+//      The output value may be Y in an X,Y plot,
+//      or may be X for an X axis equi-width transformation.
+//
+//      Handles any xval input, even outside the given X,Y or Y-only points.
+//      However, uses linear interpolation outside the supplied ponit range.
+//
+//      Handles any non-zero number of X,Y or Y-only points.
+//      For npts=0 always returns a zero value.
+//      For npts=1 always returns the single pV[0] value.
+//      For npts=2 or npts=3 does linear interpolation.
+//      For npts>3 does four-point spline between 2nd and 2nd-to-last points.
+//      For npts>3 does linear interpolation before 2nd and after 2nd-to-last.
+//
+//      Spline Algorithm: Calculate interpolation polynomial coefficients.
+//      We derive a different cubic polynomial for each region between 2 points.
+//      We assume that X=0 at the left point of the region & X=1 at the right.
+//      We call y1 and y2 the Y values of the two points, between which we must
+//      interpolate.  Also, y0 and y2 are the points just before  and after.
+//
+//      We assume that the slope at a point is the average of the slope between
+//      it and the previous point and the slope between the next point and
+//      itself. For equally spaced, these are slopes at left and right edges:
+//          s1 = (y2-y0)/2
+//          s2 = (y3-y1)/2
+//
+//      For X,Y data derive equivalent equally spaced Y0,Y3 on fly from slopes.
+//          s1 = (((v1-v0)/(x1-x0)) + (y2-y1)/(x2-x1)) / 2
+//          Y0 = y1 - s1*(x2-x1)
+//          s2 = (((v2-v1)/(x2-x1)) + (y3-y2)/(x3-x2)) / 2
+//          Y3 = y2 + s2*(x2-x1)
+//
+//      Remember that for each point our quadratic function is:
+//          Y = f(x) = a*x^3 + b*x^2 + c*x + d
+//
+//      Calculus provides the slope function:
+//          df/dx = 3*a*x^2 + 2*b*x + c
+//
+//      In solving for a,b,c,d we use four constraints.
+//      The begin and end of function must intersect given pV values: y1,y2.
+//      The begin and end slopes must be the s1,s2 average adjoining slopes.
+//      At beginning x=0, and x=1 at end, which simplifies above functions.
+//          f[0] = y1  =  d
+//          f[1] = y2  =  a + b + c + d  =  a + b + c + y1
+//          (df/dx)[0] =  s1  =  c
+//          (df/dx)[1] =  s2  =  3*a + 2*b + c  = 3*a + 2*b + s1
+//
+//      Solving, we have:
+//          a = 2*y1 - 2*y2 + s1 + s2
+//          b = 3*y2 - 3*y1 - 2*s1 - s2
+//          c = s1
+//          d = y1
+//
+//      We return the interpolated value:
+//          Y = a*X^3 + b*X^2 + c*X + d
+//          Where X is the output point's 0-1 fraction between y1 and y2.
+//
+//  Arguments:
+//      flx OSSpline (int mode, flx xval, flx* pV, flx* pX, int npts)
+//      mode    0 = Linear interpolation
+//              1 = Spline interpolation
+//             +8 = Do not assume zero values one point outside of X limits
+//      xval    X coordinate whose pV X or Y value is to be output.
+//              If pX is NULL then this is a float array index (0=1st).
+//      pV      Input Y or transformed X values between which we interpolate.
+//      pX      Input X values for pV values or NULL if pV is equally spaced.
+//              The xval gives the desired interpolation point in X,Y array.
+//              For equally spaced pV values, xval must be point index (0=1st).
+//      npts    Number of pV and pX input values.
+//
+//  Returns:
+//      Spline interpolated pV value at given xval coordinate.
+//*************************************************************************
+    
+CSTYLE flx xproc
+OSSpline (int mode, flx xval, flx* pV, flx* pX, int npts) {
+    flx Y0,Y1,Y2,Y3, YY,XX, X2,X3, S1,S2,S3, AA,BB, dX;
+    int iv, iend, iem1;
+
+    if (npts < 1) return(0);                    //no points assumes 0 output
+    if (npts < 2) return(pV[0]);                //one point assumes flat value
+    iend = npts - 1;
+    iem1 = npts - 2;                            //index to last point
+                                                //index to ponit before last
+    // Handle X,Y data.
+
+    if (pX) {                                   //X,Y?
+        if (xval < pX[1]) {                     //inside or before first segment?
+            dX = pX[1] - pX[0];                 //(no previous slope for spline)
+            if (dX <= 0) dX= 1.0;
+            if ((xval < pX[0])&&(!(mode & 8))) {//assume zero outside of limits?
+                X2 = pX[0] - dX;
+                if (xval < X2) return(0);       //zero one or more points outside
+                YY = pV[0]*((xval - X2) / dX);
+                return(YY);                     //interpolate to 0 less than that
+            }
+            YY = pV[0] + ((pV[1] - pV[0])*((xval - pX[0]) / dX));
+            return(YY);                         //linear interpolate 1st seg
+        }
+        if (xval >= pX[iem1]) {                 //inside or after last segment?
+            dX = pX[iend] - pX[iem1];           //(no next slope for spline)
+            if (dX <= 0) dX= 1.0;
+            if ((xval > pX[iend])&&(!(mode & 8))) {
+                X2 = pX[iend] + dX;             //assume zero outside of limits?
+                if (xval > X2) return(0);       //zero one or more points outside
+                YY = pV[iend]*((X2 - xval) / dX);
+                return(YY);                     //interpolate to 0 less than that
+            }
+            YY = pV[iem1] + ((pV[iend] - pV[iem1])*((xval - pX[iem1]) / dX));
+            return(YY);                         //linear interpolate last seg
+        }
+
+        iv = 2;
+        do {
+            if (xval < pX[iv]) break;           //find index above
+        } while (++iv < iend);     
+        iv -= 1;                                //make index below
+        if (iv >= iem1) {                       //should be impossible
+            return(pV[iem1]);                   //(because covered >iemi above)
+        }                                       //just in case
+        Y1 = pV[iv];
+        Y2 = pV[iv+1];
+
+        dX = pX[iv+1] - pX[iv];
+        if (dX <= 0) dX = 1.0;
+        XX = (xval - pX[iv])/dX;                //fraction into Y1-Y2 
+
+        if (!(mode & 1)) {                      //linear interpolation?
+            return(Y1 + ((Y2 - Y1)*XX));
+        }
+
+        dX = pX[iv+1] - pX[iv];
+        if (dX <= 0) dX = 1.0;
+        S3 = (Y2 - Y1)/dX;
+        dX = pX[iv] - pX[iv-1];
+        if (dX <= 0) dX = 1.0;
+        S1 = (Y1 - pV[iv-1])/dX;
+        S1 = (S1 + S3) * 0.5;                   //average slope at Y1
+
+        dX = pX[iv+2] - pX[iv+1];
+        if (dX <= 0) dX = 1.0;
+        S3 = (pV[iv+2] - Y2)/dX;
+        dX = pX[iv+1] - pX[iv];
+        if (dX <= 0) dX = 1.0;
+        S2 = (Y2 - Y1)/dX;
+        S2 = (S2 + S3) * 0.5;                   //average slope at Y2
+
+    // Handle Y-only data where X is just index.
+
+    } else {                                    //equally spaced w/o X values?
+        if (xval < 1) {                         //before second point?
+            if ((xval < 0)&&(!(mode & 8))) {    //assume zero outside of limits?
+                if (xval < -1) return(0);       //zero one or more points outside
+                YY = pV[0]*(xval + 1);          //interpolate to 0 less than that
+                return(YY);
+            }
+            YY = pV[0] + ((pV[1] - pV[0])*xval);
+            return(YY);                         //linear interpolate 1st seg
+        }
+        if (xval >= iem1) {                     //after second to last point?
+            if ((xval > iend)&&(!(mode & 8))) { //assume zero outside of limits?
+                if (xval > (iend+1)) return(0); //zero one or more points outside
+                YY = pV[iend]*(xval - iend);    //interpolate to 0 less than that
+                return(YY);
+            }
+            YY = pV[iem1] + ((pV[iend] - pV[iem1])*(xval - iem1));
+            return(YY);                         //linear interpolate last seg
+        }
+
+        iv = (int) xval;                        //find index below
+        if (iv < 1) {                           //should be impossible
+            return(pV[0]);                      //ibecause <1 above covers
+        }                                       //just in case
+        if (iv >= iem1) {                       //should be impossible
+            return(pV[iem1]);                   //just in case
+        }
+        Y1 = pV[iv];
+        Y2 = pV[iv+1];
+        XX = xval - int(iv);                    //fraction into Y1-Y2 
+
+        if (!(mode & 1)) {                      //linear interpolation?
+            return(Y1 + ((Y2 - Y1)*XX));
+        }
+
+        Y0 = pV[iv-1];
+        Y3 = pV[iv+2];
+
+        S1 = (Y2 - Y0)/2.0;
+        S2 = (Y3 - Y1)/2.0;
+    }
+
+    // Now we have Y1 and Y2 begin and end values for xval's segment.
+    // And we have S1 and S2 begin and end slopes for xval's segment.
+    // And we have XX 0-1 fraction that xval is into the segment.
+    // Solve for spline value given surrounding values and slopes.
+    // a = 2*y1 - 2*y2 + s1 + s2
+    // b = 3*y2 - 3*y1 - 2*s1 - s2
+    // c = s1
+    // d = y1
+
+    AA = (2.0 * Y1) - (2.0 * Y2) + S1 + S2;
+    BB = (3.0 * Y2) - (3.0 * Y1) - (2.0 * S1) - S2;
+    //CC = S1;
+    //DD = Y1;
+
+    // Return spline function's value for 0-1 x value.
+    // Y = a*x^3 + b*x^2 + c*x + d
+
+    X2 = XX * XX;                               //x^2
+    X3 = X2 * XX;                               //x^3
+    YY = (AA * X3) + (BB * X2) + (S1 * XX) + Y1;
+
+    return(YY);                                 //return interpolated value
+}
+
+//*************************************************************************
 //  OSRaise:
 //      Raises a floating number to the power of a given exponent.
 //
@@ -4573,6 +5035,7 @@ OSAddLog (int mode, text* plog, text* pmsg, int code, lint numb, text* pnam) {
 
     #ifdef ISWIN                                //=== Windows
     ee = -1;
+    file = NULL;                                //avoid compiler error
     if (!(mode & 1)) {                          //open log file
         file = CreateFileA(plog, (GENERIC_READ | GENERIC_WRITE),
                           (FILE_SHARE_READ | FILE_SHARE_WRITE), NULL,
@@ -4592,6 +5055,7 @@ OSAddLog (int mode, text* plog, text* pmsg, int code, lint numb, text* pnam) {
 
     #else                                       //=== Linux
     ee = -1;
+    file = NULL;                                //avoid compiler error
     if (!(mode & 1)) {                          //open log file
         file = open(plog, (O_WRONLY | O_APPEND));
         ee = (file == -1) ? (-2) : 0;

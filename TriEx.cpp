@@ -11,6 +11,7 @@
 //  Compile with /D EXFIFOS to enable QFifo, BFifo functions.
 //  Compile with /D EXTESTS to enable Test function.
 //  Compile with /D QF_LOCK to add mutex lock to QFifo. Always Used Below!
+//  Compile with /D DEB_REG \Temp\FakeRID.txt cpu+,mac+ text fake computer id.
 //  Compile with /D ISWIN to make Windows dependent.
 //  Windows requries linking with htmlhelp.lib
 //
@@ -144,18 +145,20 @@ lint  cmd_quiet = FALSE;    //TRUE if UserOutput quiet mode
 //  Arguments:
 //      errc FileCopy (int mode, text* pdup, text* pdir, text* psrc, 
 //                     CWaitS* pbar)
+//      mode    0 = Just copy full psrc path name to full pdir path
 //      mode   +1 = Add number to base name to make unique           (CF_UNIQUE)
 //                  Otherwise returns error rather than overwriting 
 //             +2 = Overwrite if target file exits                   (CF_OVERWT)
 //                  The +2 mode cannot be used with +1 
 //             +4 = Copy to pdir path and file name not just folder  (CF_TONAME)
-//                  The +4 mode may still change name if +1 to make unique 
+//                  The +4 mode may still change name to make unique 
+//                  The +4 mode may still change pdir name extension
 //             +8 = Copy to pdir path and file name with CF_EXT      (CF_STNAME)
 //                  Changes pdir extension to CF_EXT or .dat.
 //      pdup    Returns new copied path and file name.
 //              Returns non-blank name even if copy failed (for error message).
 //              May be NULL if not needed.
-//      pdir    Target folder or target path and file name.
+//      pdir    Target path and file name or target folder or folder and base.
 //      psrc    Source path and file name.
 //      pbar    Used to present progress bar.
 //              Caller must supply progress bar handling function.
@@ -187,35 +190,39 @@ isproc FileCopy (int mode, text* pdup, text* pdir, text* psrc,
 
     if (pdup) *pdup = 0;                        //in case of error
 
-    ptxt = name + OSFileDir(name, pdir);        //get target filename
-    puse = (mode & CF_TONAME) ? pdir : psrc;
-    pend = ptxt + OSFileBase(ptxt, puse, OS_NOEXT);
-    ptxt = pend;
-    cntr = 1024;
-    while (TRUE) {
-        if (mode & CF_STNAME) {
-            OSTxtCopy(ptxt, CF_EXT);            //use .dat extension?
-        } else {
-            OSFileExt(ptxt, psrc);              //use source extension?
-        }
-        if (  (!(mode & CF_OVERWT))             //don't overwrite?
-            &&(OSExists(0, name) == 0)  ) {     //already exists on target?
-
-            if (!(mode & CF_UNIQUE)) {
-                return(ECEXISTS);               //fail if exists?
+    if (mode) {                                 //special modes?
+        ptxt = name + OSFileDir(name, pdir);    //get target filename
+        puse = (mode & CF_TONAME) ? pdir : psrc;
+        pend = ptxt + OSFileBase(ptxt, puse, OS_NOEXT);
+        ptxt = pend;
+        cntr = 1024;
+        while (TRUE) {
+            if (mode & CF_STNAME) {
+                OSTxtCopy(ptxt, CF_EXT);        //use .dat extension?
+            } else {
+                OSFileExt(ptxt, psrc);          //use source extension?
             }
+            if (  (!(mode & CF_OVERWT))         //don't overwrite?
+                &&(OSExists(0, name) == 0)  ) { //already exists on target?
 
-            cntr -= 1;
-            if (cntr == 0) return(ECNOROOM);    //cannot find free file name?
+                if (!(mode & CF_UNIQUE)) {
+                    return(ECEXISTS);           //fail if exists?
+                }
 
-            ptxt = pend;
-            *ptxt++ = '_';                      //name__HHHH.ext
-            *ptxt++ = '_';
-            add = OSTickCount() & 0xFFFF;
-            ptxt = OSHexPut(add, ptxt);         //add four random hex digits
-            continue;                           //and try again
+                cntr -= 1;
+                if (cntr == 0) return(ECNOROOM);//cannot find free file name?
+
+                ptxt = pend;
+                *ptxt++ = '_';                  //name__HHHH.ext
+                *ptxt++ = '_';
+                add = OSTickCount() & 0xFFFF;
+                ptxt = OSHexPut(add, ptxt);     //add four random hex digits
+                continue;                       //and try again
+            }
+            break;
         }
-        break;
+    } else {                                    //mode 0 copy psrc->pdir
+        OSTxtCopy(name, pdir);
     }
     if (pdup) OSTxtCopy(pdup, name);            //return new file name
 
@@ -3868,6 +3875,12 @@ dword RegSum (int mode, text* ptxt) {
 //      CPUID Version Info or 1,2,3,4 for Non-Intel,386,486,586 w/o CPUID.
 //*************************************************************************
 
+//#define DEB_REG
+#ifdef DEB_REG                                  //=== SPECIAL DEBUG FAKE CPU
+int deb_cpu = -1;                               //allows chaning CPU/MAC ID
+int deb_mac = -1;
+#endif                                          //===
+
 CSTYLE
 dword RegCPU (int mode) {
     if (mode == 3) {                            //get computer id?
@@ -3889,6 +3902,22 @@ dword RegCPU (int mode) {
         sern ^= siz.dw.hi;
         sern ^= RegCPU(0);                      //and CPUID type,family,model
         if ((unsigned)sern < 2) sern = 2;       //do not allow reserved values
+        #ifdef DEB_REG                          //=== SPECIAL DEBUG FAKE CPU
+        if (deb_cpu == -1) {                    //first time after loaded?
+            deb_cpu = deb_mac = 0;              //do no harm if fails
+            aint file = OSOpen(OS_READ, "C:\\Temp\\FakeRID.txt");
+            char buff[SZNAME];
+            buff[0] = 0;
+            OSRead(file, buff, SZNAME);
+            char* preg = buff;
+            deb_cpu = OSNumGet(preg, &preg);    //read cpu and mac increments
+            if (*preg == ',') preg += 1;        //from FakeRID.txt file
+            deb_mac = OSNumGet(preg, &preg);    //to be added to computer's IDs
+            OSClose(file);
+            printf("@@ RegCPU Temp\\FakeRID.txt CPU+ %i and MAC+ %i Debug ID\n", deb_cpu, deb_mac);
+        }
+        sern += deb_cpu;                        //change to fake CPU ID
+        #endif                                  //===
         return(sern);
         #endif                                  //---
     }
@@ -4027,6 +4056,23 @@ dword RegMAC (int mode) {
             }
             pin = pin->Next;                    //continue through list
         } while (pin);
+        #ifdef DEB_REG                          //=== SPECIAL DEBUG FAKE CPU
+        if (deb_cpu == -1) {                    //first time after loaded?
+            deb_cpu = deb_mac = 0;              //do no harm if fails
+            aint file = OSOpen(OS_READ, "C:\\Temp\\FakeRID.txt");
+            char buff[SZNAME];
+            buff[0] = 0;
+            OSRead(file, buff, SZNAME);
+            char* preg = buff;
+            deb_cpu = OSNumGet(preg, &preg);    //read cpu and mac increments
+            if (*preg == ',') preg += 1;        //from FakeRID.txt file
+            deb_mac = OSNumGet(preg, &preg);    //to be added to computer's IDs
+            OSClose(file);
+            printf("@@ RegMAC Temp\\FakeRID.txt CPU+ %i and MAC+ %i Debug ID\n", deb_cpu, deb_mac);
+        }
+        ethn += deb_mac;                        //change to fake MAC ID
+        wifi += deb_mac;                        //just in case
+        #endif                                  //===
         if (ethn > 2) return(ethn);             //return most common
         if (wifi > 2) return(wifi);             //so repeatable call to call
         if (ring > 2) return(ring);

@@ -5,7 +5,7 @@
 //      Portable OS Utility Functions.
 //      Includes CDefs.h and CError.h
 //
-//  This software was created 1996-2018 by SCSimonoff.
+//  This software was created 1996-2021 by SCSimonoff.
 //  It may be freely used and distributed on the condition that this
 //  message remains and no copyright is added to this or derived copies.
 //*************************************************************************
@@ -356,6 +356,7 @@ text* xproc     OSIntPut (lint num, text* ptext);
 lint xproc      OSIntGet (text* ptext, lptext* ppend);
 text* xproc     OSIntPutQ (qint num, text* ptext);
 qint xproc      OSIntGetQ (text* ptext, lptext* ppend);
+text* xproc     OSIntPutU (dword num, text* ptext);
 
 text* xproc     OSHexPut (dword num, text* ptext);
 dword xproc     OSHexGet (text* ptext, lptext* ppend);
@@ -371,6 +372,9 @@ flx xproc       OSSin (flx value);
 flx xproc       OSCos (flx value);
 flx xproc       OSArcTan (flx value);
 flx xproc       OSArcTan2 (flx yval, flx xval);
+
+int xproc       OSInterp (int mode, flx* Y2, int npt2, flx beg2, flx end2, flx beg, flx end, flx* X, flx* Y, int npts);
+flx xproc       OSSpline (int mode, flx xval, flx* pV, flx* pX, int npts);
 flx xproc       OSRaise (flx base, flx exp);
 flx xproc       OSLog10 (flx value);
 
@@ -563,7 +567,7 @@ CSTYLE_END
 #define SOCK_APPINIT   11       //OSConnect initialize sockets for application
 #define SOCK_APPDONE   12       //OSConnect shut down sockets for application
 #define SOCK_RAWS      32       //OSConnect for raw eithernet packets
-#define SOCK_IV6       64       //OSConnect use IPv6
+#define SOCK_IV6       128      //OSConnect use IPv6
 #define SOCK_UDP       256      //OSConnect for UDP instead of TCP
 #define SOCK_SHUT      512      //OSConnect shutdown socket for further writes
 #define SOCK_NOWAIT    1024     //OSConnect do not linger for socket close

@@ -81,21 +81,21 @@ typedef SerIn* sfar lpSerIn;
 // Caller must provide a memer: label for ECMEMORY error.
 #define RAW_BALL(m,s,v,n) if ((m & SER_GET)&&(n)) {     \
                             if (v) OSFree(v);           \
-                            v=(double*)OSAlloc(n);      \
+                            v=(byte*)OSAlloc(n);        \
                             if (v==NULL) goto memer; }
 
 // Prepares word array pointer for RAW_WRDS macro.
 // Caller must provide a memer: label for ECMEMORY error.
 #define RAW_WALL(m,s,v,n) if ((m & SER_GET)&&(n)) {     \
                             if (v) OSFree(v);           \
-                            v=(double*)OSAlloc(n*2);    \
+                            v=(word*)OSAlloc(n*2);      \
                             if (v==NULL) goto memer; }
 
 // Prepares dword array pointer for RAW_DWDS macro.
 // Caller must provide a memer: label for ECMEMORY error.
 #define RAW_DALL(m,s,v,n) if ((m & SER_GET)&&(n)) {     \
                             if (v) OSFree(v);           \
-                            v=(double*)OSAlloc(n*4);    \
+                            v=(float*)OSAlloc(n*4);     \
                             if (v==NULL) goto memer; }
 
 // Prepares qword array pointer for RAW_QWDS macro.
